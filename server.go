@@ -1,6 +1,9 @@
 package main
 
-import "net/http"
+import (
+	"encoding/json"
+	"net/http"
+)
 
 type Player struct {
 	FirstName string `json: "First Name"`
@@ -15,6 +18,23 @@ type playerHandlers struct {
 }
 
 func (p *playerHandlers) get(w http.ResponseWriter, r *http.Request) {
+	players := make([]Player, len(p.store))
+
+	i := 0
+	for _, player := range p.store {
+		players[i] = player
+		i++
+	}
+
+	jsonBytes, err := json.Marshal(players)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+	}
+
+	w.Header().Add("content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonBytes)
 
 }
 
