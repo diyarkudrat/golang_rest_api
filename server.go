@@ -56,6 +56,7 @@ func (p *playerHandlers) get(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
+		return
 	}
 
 	w.Header().Add("content-type", "application/json")
@@ -71,6 +72,14 @@ func (p *playerHandlers) post(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
+		return
+	}
+
+	contype := r.Header.Get("content-type")
+	if contype != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		w.Write([]byte(fmt.Sprintf("need content-type 'application/json', but got '%s'", contype)))
+		return
 	}
 
 	var player Player
@@ -78,6 +87,7 @@ func (p *playerHandlers) post(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
+		return
 	}
 
 	player.ID = fmt.Sprintf("%d", time.Now().UnixNano())
