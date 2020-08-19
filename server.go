@@ -2,29 +2,52 @@ package main
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
+	"sync"
 )
 
 type Player struct {
-	FirstName string `json: "First Name"`
-	LastName  string `json: "Last Name"`
-	Height    string `json: "Height"`
-	Weight    int    `json: "Weight"`
-	State     string `json: "State"`
+	FirstName string   `json: "First Name"`
+	LastName  string   `json: "Last Name"`
+	Position  []string `json: "Position"`
+	Height    string   `json: "Height"`
+	Weight    int      `json: "Weight"`
+	State     string   `json: "State"`
 }
 
 type playerHandlers struct {
+	sync.Mutex
 	store map[string]Player
+}
+
+func (p *playerHandlers) players(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		p.get(w, r)
+		return
+	case "POST":
+		p.post(w, r)
+		return
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.Write([]byte("method not allowed"))
+		return
+	}
+
 }
 
 func (p *playerHandlers) get(w http.ResponseWriter, r *http.Request) {
 	players := make([]Player, len(p.store))
 
+	p.Lock()
+	// Lock so only one goroutine at a time can access the map
 	i := 0
 	for _, player := range p.store {
 		players[i] = player
 		i++
 	}
+	p.Unlock()
 
 	jsonBytes, err := json.Marshal(players)
 	if err != nil {
@@ -38,12 +61,26 @@ func (p *playerHandlers) get(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (p *playerHandlers) post(w http.ResponseWriter, r *http.Request) {
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+	}
+
+	p.Lock()
+	defer p.Unlock()
+
+}
+
 func newPlayerHandlers() *playerHandlers {
 	return &playerHandlers{
 		store: map[string]Player{
 			"test": Player{
 				FirstName: "Diyar",
 				LastName:  "Kudrat",
+				Position:  []string{"MLB"},
 				Height:    "5'11",
 				Weight:    245,
 				State:     "CA",
@@ -54,7 +91,7 @@ func newPlayerHandlers() *playerHandlers {
 
 func main() {
 	playerHandlers := newPlayerHandlers()
-	http.HandleFunc("/players", playerHandlers.get)
+	http.HandleFunc("/players", playerHandlers.players)
 	err := http.ListenAndServe(":5000", nil)
 	if err != nil {
 		panic(err)
