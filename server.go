@@ -2,18 +2,21 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
+	"time"
 )
 
 type Player struct {
-	FirstName string   `json: "First Name"`
-	LastName  string   `json: "Last Name"`
-	Position  []string `json: "Position"`
-	Height    string   `json: "Height"`
-	Weight    int      `json: "Weight"`
-	State     string   `json: "State"`
+	ID        string `json:"id"`
+	FirstName string `json: "First Name"`
+	LastName  string `json: "Last Name"`
+	Position  string `json: "Position"`
+	Height    string `json: "Height"`
+	Weight    int    `json: "Weight"`
+	State     string `json: "State"`
 }
 
 type playerHandlers struct {
@@ -62,6 +65,7 @@ func (p *playerHandlers) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *playerHandlers) post(w http.ResponseWriter, r *http.Request) {
+	// json data
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
@@ -69,7 +73,17 @@ func (p *playerHandlers) post(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 	}
 
+	var player Player
+	err = json.Unmarshal(bodyBytes, &player)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+	}
+
+	player.ID = fmt.Sprintf("%d", time.Now().UnixNano())
+
 	p.Lock()
+	p.store[player.FirstName] = player
 	defer p.Unlock()
 
 }
@@ -80,7 +94,7 @@ func newPlayerHandlers() *playerHandlers {
 			"test": Player{
 				FirstName: "Diyar",
 				LastName:  "Kudrat",
-				Position:  []string{"MLB"},
+				Position:  "OG",
 				Height:    "5'11",
 				Weight:    245,
 				State:     "CA",
