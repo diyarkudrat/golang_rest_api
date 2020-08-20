@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -67,10 +68,40 @@ func (p *playerHandlers) get(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (p *playerHandlers) getRandomPlayer(w http.ResponseWriter, r *http.Request) {
+	idList := make([]string, len(p.store))
+	p.Lock()
+	i := 0
+	for id := range p.store {
+		idList[i] = id
+		i++
+	}
+	defer p.Unlock()
+
+	var target string
+	if len(idList) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	} else if len(idList) == 1 {
+		target = idList[0]
+	} else {
+		rand.Seed(time.Now().UnixNano())
+		target = idList[rand.Intn(len(idList))]
+	}
+
+	w.Header().Add("location", fmt.Sprintf("/players/%s", target))
+	w.WriteHeader(http.StatusFound)
+}
+
 func (p *playerHandlers) getPlayer(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.String(), "/")
 	if len(parts) != 3 {
 		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if parts[2] == "random" {
+		p.getRandomPlayer(w, r)
 		return
 	}
 
